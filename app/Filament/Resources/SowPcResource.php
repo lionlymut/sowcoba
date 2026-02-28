@@ -230,6 +230,65 @@ class SowPcResource extends Resource
                             ->send();
                     }),
 
+                    Action::make('arsipkan')
+    ->label('Arsipkan')
+    ->icon('heroicon-o-archive-box')
+    ->color('warning')
+    ->form([
+        Forms\Components\TextInput::make('nama_arsip')
+            ->label('Nama Arsip')
+            ->required(),
+    ])
+    ->requiresConfirmation()
+    ->action(function(array $data) {
+        if (\App\Models\SowPc::count() === 0) {
+            Notification::make()
+                ->title('Data SOW PC kosong')
+                ->danger()
+                ->send();
+            return;
+        }
+
+        // Buat arsip
+        $arsip = \App\Models\SowPcArsip::create([
+            'nama_arsip' => $data['nama_arsip'],
+            'keterangan' => 'Diarsipkan dari menu SOW PC',
+        ]);
+
+        // Masukkan semua SOW PC ke arsip item
+        \App\Models\SowPc::chunk(50, function($pcs) use ($arsip) {
+            foreach($pcs as $pc) {
+                \App\Models\SowPcArsipItem::create([
+                    'sow_pc_arsip_id' => $arsip->id,
+                    'case_id' => $pc->case_id,
+                    'psu_id' => $pc->psu_id,
+                    'prosesor_id' => $pc->prosesor_id,
+                    'ram_id' => $pc->ram_id,
+                    'motherboard_id' => $pc->motherboard_id,
+                    'tanggal_penggunaan' => $pc->tanggal_penggunaan,
+                    'tanggal_perbaikan' => $pc->tanggal_perbaikan,
+                    'helpdesk' => $pc->helpdesk,
+                    'form' => $pc->form,
+                    'nomor_perbaikan' => $pc->nomor_perbaikan,
+                    'hostname_id' => $pc->hostname_id,
+                    'divisi' => $pc->divisi,
+                    'pic_id' => $pc->pic_id,
+                    'keterangan' => $pc->keterangan,
+                    'foto' => $pc->foto,
+                    'status' => $pc->status,
+                ]);
+            }
+        });
+
+        // Kosongkan tabel SOW PC
+        \App\Models\SowPc::truncate();
+
+        Notification::make()
+            ->title('Data SOW PC berhasil diarsipkan')
+            ->success()
+            ->send();
+    }),
+
             ])      
              ->actions([
                 Tables\Actions\ActionGroup::make([
