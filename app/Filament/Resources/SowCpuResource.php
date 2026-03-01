@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\SowCpuExport;
 use Filament\Tables\Actions\Action;
+use Filament\Notifications\Notification;
 
 
 class SowCpuResource extends Resource
@@ -58,8 +59,8 @@ class SowCpuResource extends Resource
                             })
                             ->toArray()
                     )
-                    ->searchable()
-                    ->required(),
+                    ->searchable(),
+                   
 
 
                 Forms\Components\Select::make('motherboard_id')
@@ -73,8 +74,8 @@ class SowCpuResource extends Resource
                             })
                             ->toArray()
                     )
-                    ->searchable()
-                    ->required(),
+                    ->searchable(),
+                   
 
 
                     Forms\Components\Select::make('pic_id')
@@ -214,6 +215,63 @@ class SowCpuResource extends Resource
                         ->success()
                         ->send();
                 }),
+
+                Action::make('arsipkan')
+    ->label('Arsipkan')
+    ->icon('heroicon-o-archive-box')
+    ->color('warning')
+    ->form([
+        Forms\Components\TextInput::make('nama_arsip')
+            ->label('Nama Arsip')
+            ->required(),
+    ])
+    ->requiresConfirmation()
+    ->action(function(array $data) {
+        if (\App\Models\SowCpu::count() === 0) {
+            Notification::make()
+                ->title('Data SOW CPU kosong')
+                ->danger()
+                ->send();
+            return;
+        }
+
+        // Buat arsip
+        $arsip = \App\Models\SowCpuArsip::create([
+            'nama_arsip' => $data['nama_arsip'],
+            'keterangan' => 'Diarsipkan dari menu SOW CPU',
+        ]);
+
+        // Masukkan semua SOW CPU ke arsip item
+        \App\Models\SowCpu::chunk(50, function($cpus) use ($arsip) {
+            foreach($cpus as $cpu) {
+                \App\Models\SowCpuArsipItem::create([
+                    'sow_cpu_arsip_id' => $arsip->id,
+                    'prosesor_id' => $cpu->prosesor_id,
+                    'ram_id' => $cpu->ram_id,
+                    'motherboard_id' => $cpu->motherboard_id,
+                    'tanggal_penggunaan' => $cpu->tanggal_penggunaan,
+                    'tanggal_perbaikan' => $cpu->tanggal_perbaikan,
+                    'helpdesk' => $cpu->helpdesk,
+                    'form' => $cpu->form,
+                    'nomor_perbaikan' => $cpu->nomor_perbaikan,
+                    'hostname_id' => $cpu->hostname_id,
+                    'divisi' => $cpu->divisi,
+                    'pic_id' => $cpu->pic_id,
+                    'keterangan' => $cpu->keterangan,
+                    'foto' => $cpu->foto,
+                    'status' => $cpu->status,
+                ]);
+            }
+        });
+
+        // Kosongkan tabel SOW CPU
+        \App\Models\SowCpu::truncate();
+
+        Notification::make()
+            ->title('Data SOW CPU berhasil diarsipkan')
+            ->success()
+            ->send();
+    }),
             ])
              ->actions([
                 Tables\Actions\ActionGroup::make([
